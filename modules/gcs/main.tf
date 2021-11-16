@@ -45,26 +45,44 @@ locals {
   logging_config = {
     for name in var.names : name => lookup(var.logging_config, name, null)
   }
+
+  lifecycle_rule = {
+    for name in var.names : name => var.lifecycle_rule == null ? null :
+      {
+        action = lookup(
+          var.lifecycle_rule,
+          "action",
+          { type = null }
+        )
+        condition = lookup(
+          var.lifecycle_rule,
+          "condition",
+          { age = null, with_state = null, num_newer_versions = null }
+        )
+      }
+  }
 }
 
 resource "google_storage_bucket" "buckets" {
-  for_each           = toset(var.names)
-  name               = "${local.prefix}${lower(each.key)}"
-  project            = var.project_id
-  location           = var.location
-  storage_class      = var.storage_class
-  force_destroy      = lookup(var.force_destroy, each.key, false)
+  for_each                    = toset(var.names)
+  name                        = "${local.prefix}${lower(each.key)}"
+  project                     = var.project_id
+  location                    = var.location
+  storage_class               = var.storage_class
+  force_destroy               = lookup(var.force_destroy, each.key, false)
   uniform_bucket_level_access = lookup(var.uniform_bucket_level_access, each.key, true)
+
   versioning {
     enabled = lookup(var.versioning, each.key, false)
   }
+
   labels = merge(var.labels, {
     location      = lower(var.location)
     name          = lower(each.key)
     storage_class = lower(var.storage_class)
   })
 
-  dynamic encryption {
+  dynamic "encryption" {
     for_each = local.kms_keys[each.key] == null ? [] : [""]
 
     content {
@@ -72,7 +90,7 @@ resource "google_storage_bucket" "buckets" {
     }
   }
 
-  dynamic retention_policy {
+  dynamic "retention_policy" {
     for_each = local.retention_policy[each.key] == null ? [] : [""]
     content {
       retention_period = local.retention_policy[each.key]["retention_period"]
@@ -80,11 +98,25 @@ resource "google_storage_bucket" "buckets" {
     }
   }
 
-  dynamic logging {
+  dynamic "logging" {
     for_each = local.logging_config[each.key] == null ? [] : [""]
     content {
       log_bucket        = local.logging_config[each.key]["log_bucket"]
       log_object_prefix = local.logging_config[each.key]["log_object_prefix"]
+    }
+  }
+
+  dynamic "lifecycle_rule" {
+    for_each = local.lifecycle_rule[each.key] == null ? [] : [""]
+    content {
+      action {
+        type          = local.lifecycle_rule[each.key].action["type"]
+      }
+      condition {
+        age                = local.lifecycle_rule[each.key].condition["age"]
+        with_state         = local.lifecycle_rule[each.key].condition["with_state"]
+        num_newer_versions = local.lifecycle_rule[each.key].condition["num_newer_versions"]
+      }
     }
   }
 }

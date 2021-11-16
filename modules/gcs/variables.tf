@@ -50,6 +50,21 @@ variable "labels" {
   default     = {}
 }
 
+variable "lifecycle_rule" {
+  description = "Bucket lifecycle rule"
+  type = object({
+    action = object({
+      type          = string
+    })
+    condition = object({
+      age                = number
+      with_state         = string
+      num_newer_versions = number
+    })
+  })
+  default = null
+}
+
 variable "location" {
   description = "Bucket location."
   type        = string

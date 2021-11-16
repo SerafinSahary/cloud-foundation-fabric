@@ -60,6 +60,19 @@ module "tf-gcs-bootstrap" {
   names      = ["tf-bootstrap"]
   prefix     = "${var.prefix}-tf"
   location   = var.gcs_location
+  versioning = {
+    "tf-bootstrap" = true
+  }
+  lifecycle_rule = {
+    action = {
+      type          = "Delete"
+    }
+    condition = {
+      age                = 0
+      with_state         = "ARCHIVED"
+      num_newer_versions = 16
+    }
+  }
 }
 
 # per-environment Terraform state GCS buckets
@@ -75,7 +88,22 @@ module "tf-gcs-environments" {
   }
   iam_members = {
     for name in var.environments : (name) => {
-      "roles/storage.objectAdmin" = [module.tf-service-accounts.iam_emails[name]]
+      "roles/storage.objectAdmin" = concat(
+        [module.tf-service-accounts.iam_emails[name]],
+        var.iam_bucket_admin)
+    }
+  }
+  versioning = {
+    for name in var.environments : (name) => true
+  }
+  lifecycle_rule = {
+    action = {
+      type          = "Delete"
+    }
+    condition = {
+      age                = 0
+      with_state         = "ARCHIVED"
+      num_newer_versions = 16
     }
   }
 }

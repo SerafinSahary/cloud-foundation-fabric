@@ -44,6 +44,12 @@ variable "iam_audit_viewers" {
   default     = []
 }
 
+variable "iam_bucket_admin" {
+  description = "State bucket Admins, in IAM format."
+  type        = list(string)
+  default     = []
+}
+
 variable "iam_billing_config" {
   description = "Control granting billing user role to service accounts. Target the billing account by default."
   type = object({
